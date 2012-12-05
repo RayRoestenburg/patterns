@@ -35,6 +35,7 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration, ceiling: In
       // only send to child if there us currently no redo scheduled or pending resolution.
       if (possibleRedoMsg.isEmpty) {
         backedUp.foreach(trackedMsg ⇒ dangerousActor.forward(trackedMsg))
+        backedUp = Vector()
         dangerousActor.forward(TrackedMsg(msg, sender))
       } else backedUp = backedUp :+ TrackedMsg(msg, sender)
     case Terminated(failedRef) ⇒
