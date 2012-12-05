@@ -18,3 +18,5 @@ This example uses a supervisor, the <code>BackOffSender</code>, which creates a 
 The <code>BackOffSender</code> uses a <code>SupervisorStrategy.stoppingStrategy</code>. If the child fails for any kind of reason it is terminated. The <code>BackOffSender</code> watches the child and creates a new child on receiving a <code>Terminated</code> message and continues to send messages with the new child. The terminated child sends its last failed message up to the supervisor (the <code>BackOffSender</code>). This failed message is retried by the <code>BackOffSender</code>. 
 
 The failed message is scheduled when the child dies after a delay that is decided by the back off algorithm. When the message succeeds the back off algorithm is reset.  
+
+The child actor used in the test simply throws an <code>IllegalArgumentException</code> when it receives a 500 status code to simulate a crash. The <code>BackOffSenderTest</code> shows a very minimal test to verify that the sender receives responses as is expected even though the consumer it is sent to fails for a number of consecutive calls. 
