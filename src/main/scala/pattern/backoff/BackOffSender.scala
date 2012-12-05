@@ -32,7 +32,7 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration, ceiling: In
 
   def receive = {
     case msg: Msg ⇒
-      // only send to child if there us currently no redo scheduled or pending resolution.
+      // only send to child if there is currently no redo scheduled or pending resolution.
       if (possibleRedoMsg.isEmpty) {
         backedUp.foreach(trackedMsg ⇒ dangerousActor.forward(trackedMsg))
         backedUp = Vector()
