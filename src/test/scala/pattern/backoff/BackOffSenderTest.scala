@@ -28,15 +28,19 @@ class BackOffSenderTest extends TestKit(ActorSystem("test")) with WordSpec with 
       val dangerousProps = Props(new DangerousProducer(uri))
       val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, 50 millis, 10, false)), "BackOffSender")
       import BackOffProtocol._
+      // any other message than 'err' puts the consumer in the error state
       backOffSender.tell(Msg(1, "test"), testActor)
       expectMsg(Msg(1, "test"))
-
+      // the consumer will fail 7 times, after that the 'err' message will be accepted again.
+      // the consumer will be out of error state
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
 
+      // any other message than 'err' puts the consumer in the error state
       backOffSender.tell(Msg(1, "test"), testActor)
       expectMsg(Msg(1, "test"))
 
+      // try again
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
     }
