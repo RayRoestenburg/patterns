@@ -5,7 +5,7 @@ import akka.camel.{ CamelMessage, Producer }
 import org.apache.camel.Exchange
 
 /**
- * A 'Dangerous' producer. It crashes when it receives a 500 status from the camel endpoint.
+ * A 'Dangerous' producer, a test example of a Camel producer that crashes on a 500 response code.
  * The producer translates the 'Msg' type that is part of the domain to a CamelMessage.
  */
 class DangerousProducer(val endpointUri: String) extends Actor with Producer with ActorLogging {

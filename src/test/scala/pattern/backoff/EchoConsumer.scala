@@ -4,8 +4,8 @@ import akka.camel.{ CamelMessage, Consumer }
 import org.apache.camel.Exchange
 
 /**
- * Test consumer, responds with an 'error' code if an 'err' body is received and stays
- * in an error state for 8 consecutive messages.
+ * A Test consumer, responds with an 'error' code if an 'err' body is received and stays
+ * in an error state for 8 consecutive messages. Can be used to test the BackOffSender with the DangerousProducer.
  */
 class EchoConsumer(val endpointUri: String) extends Consumer {
   var errorState = false
