@@ -24,7 +24,7 @@ class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor with 
   // messages that have not been acknowledged (yet)
   var possiblyFailed = SortedMap[Long, FailedMsg]()
   implicit val ec = context.system.dispatcher
-  var waitTime = 0 millis
+  var waitTime = Duration.Zero
 
   def receive = {
     case msg: Msg ⇒
@@ -37,6 +37,7 @@ class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor with 
         dangerousActor.forward(trackedMsg)
       } else {
         context.system.scheduler.scheduleOnce(waitTime) {
+          // send to self makes sure that we get an 'alive and dangerous' actor
           self ! trackedMsg
         }
       }
@@ -52,12 +53,13 @@ class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor with 
       context.system.scheduler.scheduleOnce(waitTime) {
         possiblyFailed.keySet.foreach { redoId ⇒
           possiblyFailed.get(redoId).foreach { redo ⇒
-            // send to self makes sure that we get a live dangerousActor
+            // send to self makes sure that we get an 'alive and dangerous' actor
             self ! redo.trackedMsg
           }
         }
       }
     case Sent(idKey) ⇒
+      //Ack of the dangerous actor. Remove successful messages and reset the backOff.
       possiblyFailed = possiblyFailed - idKey
       backOff.reset()
   }

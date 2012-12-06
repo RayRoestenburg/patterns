@@ -27,6 +27,7 @@ class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: 
   private[this] var countResets = 0
   private[this] var countRetries = 0
   private[this] var countTotalRetries = 0
+
   def isStarted = countRetries > 0
   /**
    * Resets this back off

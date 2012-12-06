@@ -19,9 +19,12 @@ class DangerousProducer(val endpointUri: String) extends Actor with Producer wit
         CamelMessage(trackedMsg.msg.data, Map(CamelMessage.MessageExchangeId -> trackedMsg.msg.id.toString))
     }
   }
-  // transforms a CamelMessage back to a Msg. correlates response to request,
-  // removes the message from the possibly failed messages and
-  // sends a Sent() message to the BackOffSender to indicate Success
+
+  /**
+   * Transforms a CamelMessage back to a Msg. correlates response to request,
+   * removes the message from the possibly failed messages and
+   *  sends a Sent() message to the BackOffSender to indicate Success
+   */
   override protected def transformResponse(msg: Any) = {
     msg match {
       case cmsg: CamelMessage ⇒

@@ -27,9 +27,9 @@ class DangerousResource(intermittentError: IntermittentError) {
 }
 
 /**
-  * A 'Dangerous' actor which uses a dangerous resource to do its work.
-  * This actor is killed the moment it throws any Exception
-  */
+ * A 'Dangerous' actor which uses a dangerous resource to do its work.
+ * This actor is killed the moment it throws any Exception
+ */
 class DangerousActor(dangerousResource: DangerousResource) extends Actor with ActorLogging {
 
   import BackOffProtocol._

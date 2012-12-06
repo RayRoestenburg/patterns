@@ -32,8 +32,7 @@ class BackOffSenderTest extends TestKit(ActorSystem("test1")) with WordSpec with
       // any other message than 'err' puts the consumer in the error state
       backOffSender.tell(Msg(1, "set-err"), testActor)
       expectMsg(Msg(1, "set-err"))
-      // the consumer will fail 8 times, after that the 'err' message will be accepted again.
-      // the consumer will be out of error state
+      // the dangerous resource will cause 8 consecutive failures, after that the 'err' message will be accepted again.
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
       // two successful messages in the end, so it should reset twice
