@@ -8,7 +8,7 @@ import akka.actor.ActorRef
 object BackOffProtocol {
   /**
    * the message type that is used in the domain. The BackOffSender sends this type of message
-   * to its child, which transforms it to an endpoint specific type. (in the example to a CamelMessage)
+   * to its child, which performs some dangerous operation in it.
    */
   case class Msg(id: Long, data: String)
 
@@ -18,12 +18,6 @@ object BackOffProtocol {
    * Msg can be responded to.
    */
   case class TrackedMsg(msg: Msg, sender: ActorRef)
-
-  /**
-   * indicates that a message send has failed. A FailedMsg is retried by the BackOffSender
-   * after a delay that is specified by the back off algorithm.
-   */
-  case class FailedMsg(trackedMsg: TrackedMsg)
 
   /**
    * indicates that the producer successfully sent a message to the endpoint.
