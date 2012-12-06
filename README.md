@@ -9,14 +9,14 @@ while using a stopping supervisor strategy.
 
 BackOffSender
 -------------
-This example shows how you can use an exponential backoff algorithm to back off from a failing endpoint. In the example a simple Camel endpoint is used. The BackOffSender sends message in request response style to the endpoint and starts to send in a delayed fashion when errors occur in the endpoint as described by the back off algorithm.
+This example shows how you can use an exponential backoff algorithm to back off from a failing endpoint. In the test example in <code>BackOffSenderTest</code> and <code>BackOffSendManyTest</code> a so-called dangerous actor uses a dangerous resource that might fail intermittently. The BackOffSender sends message in request response style to the dangerous actor and starts to send in a delayed fashion when errors occur in the endpoint as described by the back off algorithm.
 
-The Camel endpoint could fail intermittently and instead of retrying in a fixed interval the backoff mechanism is used as described [here](http://en.wikipedia.org/wiki/Exponential_backoff).
+The dangerous actor could fail intermittently and instead of retrying in a fixed interval a backoff algorithm is used as described [here](http://en.wikipedia.org/wiki/Exponential_backoff).
 
-This example uses a supervisor, the <code>BackOffSender</code>, which creates a child producer actor based on a <code>Props</code> configuration object. The child actor is seen as a dangerous element and is used to send the actual messages to the endpoint. 
+This example uses a supervisor (the <code>BackOffSender</code>) which creates and re-creates a child actor based on a <code>Props</code> configuration object. The child actor is seen as a dangerous element and is used to send the actual messages to the endpoint. 
 
-The <code>BackOffSender</code> uses a <code>SupervisorStrategy.stoppingStrategy</code>. If the child fails for any kind of reason it is terminated. The <code>BackOffSender</code> watches the child and creates a new child on receiving a <code>Terminated</code> message and continues to send messages with the new child. The terminated child sends its last failed message up to the supervisor (the <code>BackOffSender</code>). This failed message is retried by the <code>BackOffSender</code>. 
+The <code>BackOffSender</code> uses a <code>SupervisorStrategy.stoppingStrategy</code>. If the child fails for any kind of reason it is terminated. The <code>BackOffSender</code> watches the child and creates a new child on receiving a <code>Terminated</code> message and continues to send messages to the new child. Any message that was not acknowledged by the child is retried by the <code>BackOffSender</code>. 
 
-The failed message is scheduled when the child dies after a delay that is decided by the back off algorithm. When the message succeeds the back off algorithm is reset.  
+The failed message is scheduled when the child dies after a delay that is decided by the back off algorithm. When the message succeeds (acknowledged by the child) the back off algorithm is reset.  
 
-The child actor used in the test simply throws an <code>IllegalArgumentException</code> when it receives a 500 status code to simulate a crash. The <code>BackOffSenderTest</code> shows a very minimal test to verify that the sender receives responses as is expected even though the consumer it is sent to fails for a number of consecutive calls. 
+The child actor used in the tests simply throws an <code>Exception</code> while it is in an intermittent error state. The <code>BackOffSenderTest</code> and <code>BackOffSendManyTest</code> show some very minimal tests to verify that the sender sends requests and receives responses as is expected even though the dangerous actor child it is sending to fails for a number of consecutive calls. The <code>ExponentialBackOffTest</code> shows a small test for the back off algorithm.
