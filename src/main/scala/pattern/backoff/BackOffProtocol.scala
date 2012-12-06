@@ -7,8 +7,8 @@ import akka.actor.ActorRef
  */
 object BackOffProtocol {
   /**
-   * the message type that is used in the domain. The BackOffSender sends this type of message
-   * to its child, which performs some dangerous operation in it.
+   * The message type that is used in the domain. The BackOffSender sends this type of message
+   * to its child, which performs some dangerous operation on it.
    */
   case class Msg(id: Long, data: String)
 
@@ -20,7 +20,7 @@ object BackOffProtocol {
   case class TrackedMsg(msg: Msg, sender: ActorRef)
 
   /**
-   * indicates that the producer successfully sent a message to the endpoint.
+   * Indicates that the producer successfully sent a message to the endpoint.
    * When the BackOffSender receives this message it resets the back off algorithm
    */
   case class Sent(id: Long)
