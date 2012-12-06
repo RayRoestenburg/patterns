@@ -10,6 +10,7 @@ import akka.util.Timeout
 import scala.concurrent.duration._
 import org.apache.camel.Exchange
 import language.postfixOps
+
 /**
  * Simple test for BackOffSender.
  */
@@ -20,37 +21,43 @@ class BackOffSenderTest extends TestKit(ActorSystem("test")) with WordSpec with 
   implicit val timeout: Timeout = Timeout(timeoutDuration)
   implicit val ec = system.dispatcher
   val uri = "direct:test1"
-  val slotTime = 50 millis
+  val slotTime = 10 millis
   val ceiling = 10
   val stayAtCeiling = false
   val consumer = system.actorOf(Props(new EchoConsumer(uri)), "echoConsumer")
   Await.ready(camel.activationFutureFor(consumer), timeoutDuration)
+  val dangerousProps = Props(new DangerousProducer(uri))
+  val backOff = new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
+
+  val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, backOff)), "BackOffSender")
+  import BackOffProtocol._
 
   "A backoff sender" must {
     "send messages and receive responses after temporary error states" in {
-      val dangerousProps = Props(new DangerousProducer(uri))
-      val backOff = new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
-
-      val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, backOff)), "BackOffSender")
-      import BackOffProtocol._
       // any other message than 'err' puts the consumer in the error state
-      backOffSender.tell(Msg(1, "test"), testActor)
-      expectMsg(Msg(1, "test"))
+      backOffSender.tell(Msg(1, "reset-err"), testActor)
+      expectMsg(Msg(1, "reset-err"))
       // the consumer will fail 7 times, after that the 'err' message will be accepted again.
       // the consumer will be out of error state
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
 
-      // any other message than 'err' puts the consumer in the error state
-      backOffSender.tell(Msg(1, "test"), testActor)
-      expectMsg(Msg(1, "test"))
-
-      // try again
-      backOffSender.tell(Msg(1, "err"), testActor)
-      expectMsg(15 seconds, Msg(1, "err"))
     }
     "send many messages and receive responses after temporary error states" in {
-
+      backOffSender.tell(Msg(1, "reset-err"), testActor)
+      expectMsg(Msg(1, "reset-err"))
+      // the consumer will fail 7 times, after that the 'err' message will be accepted again.
+      // the consumer will be out of error state
+      backOffSender.tell(Msg(1, "err"), testActor)
+      for (i ← 2 to 10) backOffSender.tell(Msg(i, "test" + i), testActor)
+      expectMsg(15 seconds, Msg(1, "err"))
+      var count = 0
+      receiveWhile(max = 2 seconds) {
+        case msg: Msg if !msg.data.endsWith("10") ⇒
+          count += 1
+      }
+      // receive while does not count test10
+      count must be(8)
     }
   }
   override protected def afterAll() {
@@ -71,9 +78,13 @@ class EchoConsumer(val endpointUri: String) extends Consumer {
       errorCount += 1
       sender ! msg.copy(headers = msg.headers ++ Map(Exchange.HTTP_RESPONSE_CODE -> 500))
 
-    case msg: CamelMessage ⇒
+    case msg: CamelMessage if msg.bodyAs[String] == "reset-err" ⇒
       errorCount = 0
       sender ! msg.copy(headers = msg.headers ++ Map(Exchange.HTTP_RESPONSE_CODE -> 200))
       errorState = true
+    case msg: CamelMessage ⇒
+      errorCount = 0
+      errorState = false
+      sender ! msg.copy(headers = msg.headers ++ Map(Exchange.HTTP_RESPONSE_CODE -> 200))
   }
 }
