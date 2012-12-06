@@ -7,6 +7,7 @@ import concurrent.duration.{ FiniteDuration, Duration }
 
 trait BackOff {
   def reset()
+  def isStarted: Boolean
   def nextWait: FiniteDuration
 }
 
@@ -24,16 +25,20 @@ class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: 
   private[this] val rand = new Random()
   private[this] var slot = 1
   private[this] var countResets = 0
+  private[this] var countRetries = 0
+  private[this] var countTotalRetries = 0
+  def isStarted = countRetries > 0
   /**
    * Resets this back off
    */
   def reset() {
     slot = 1
     countResets += 1
+    countRetries = 0
   }
 
   def resets = countResets
-
+  def totalRetries = countTotalRetries
   /**
    * Returns the next wait time.
    * (if stayAtCeiling is true, reset to start again)
@@ -45,7 +50,8 @@ class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: 
       val exp = rand.nextInt(slot)
       math.round(math.pow(2, exp) - 1)
     }
-
+    countRetries += 1
+    countTotalRetries += 1
     if (slot > ceiling) {
       if (stayAtCeiling) {
         slot = ceiling
