@@ -5,6 +5,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
 import concurrent.duration.{ FiniteDuration, Duration }
 
+trait BackOff {
+  def reset()
+  def nextWait: FiniteDuration
+}
+
 /**
  * Algorithm for truncated exponential back off.
  * http://en.wikipedia.org/wiki/Exponential_backoff
@@ -15,16 +20,19 @@ import concurrent.duration.{ FiniteDuration, Duration }
  * @param ceiling the ceiling of the slots (number of slots)
  * @param stayAtCeiling true=truncated/stays on ceiling, false resets after ceiling
  */
-class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: Boolean = false) {
+class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: Boolean = false) extends BackOff {
   private[this] val rand = new Random()
   private[this] var slot = 1
-
+  private[this] var countResets = 0
   /**
    * Resets this back off
    */
   def reset() {
     slot = 1
+    countResets += 1
   }
+
+  def resets = countResets
 
   /**
    * Returns the next wait time.

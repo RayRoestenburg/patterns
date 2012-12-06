@@ -9,24 +9,29 @@ import scala.concurrent.Await
 import akka.util.Timeout
 import scala.concurrent.duration._
 import org.apache.camel.Exchange
-
+import language.postfixOps
 /**
  * Simple test for BackOffSender.
  */
 class BackOffSenderTest extends TestKit(ActorSystem("test")) with WordSpec with MustMatchers with BeforeAndAfterAll {
 
   val camel = CamelExtension(system)
+  implicit val timeoutDuration: FiniteDuration = 10 seconds
+  implicit val timeout: Timeout = Timeout(timeoutDuration)
+  implicit val ec = system.dispatcher
+  val uri = "direct:test1"
+  val slotTime = 50 millis
+  val ceiling = 10
+  val stayAtCeiling = false
+  val consumer = system.actorOf(Props(new EchoConsumer(uri)), "echoConsumer")
+  Await.ready(camel.activationFutureFor(consumer), timeoutDuration)
 
   "A backoff sender" must {
     "send messages and receive responses after temporary error states" in {
-      implicit val timeoutDuration: FiniteDuration = 10 seconds
-      implicit val timeout: Timeout = Timeout(timeoutDuration)
-      implicit val ec = system.dispatcher
-      val uri = "direct:test1"
-      val consumer = system.actorOf(Props(new EchoConsumer(uri)), "echoConsumer")
-      Await.ready(camel.activationFutureFor(consumer), timeoutDuration)
       val dangerousProps = Props(new DangerousProducer(uri))
-      val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, 50 millis, 10, false)), "BackOffSender")
+      val backOff = new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
+
+      val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, backOff)), "BackOffSender")
       import BackOffProtocol._
       // any other message than 'err' puts the consumer in the error state
       backOffSender.tell(Msg(1, "test"), testActor)
@@ -44,8 +49,10 @@ class BackOffSenderTest extends TestKit(ActorSystem("test")) with WordSpec with 
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
     }
-  }
+    "send many messages and receive responses after temporary error states" in {
 
+    }
+  }
   override protected def afterAll() {
     system.shutdown()
   }

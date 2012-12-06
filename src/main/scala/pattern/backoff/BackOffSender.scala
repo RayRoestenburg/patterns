@@ -14,11 +14,9 @@ import org.apache.camel.Exchange
  * when the child crashes it terminates the child and recreates a new one from Props to replace
  * the crashed child and continues to send using the new child.
  * @param dangerousProps the props to create and re-create the 'dangerous actor'
- * @param slotTime the slot time of the back off mechanism
- * @param ceiling the ceiling slot number of the back off mechanism
- * @param stayAtCeiling true if the back off mechanism should stay at the ceiling slot, false if it should reset at the ceiling slot
+ * @param backOff the backoff algotihm
  */
-class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: Boolean) extends Actor {
+class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor {
   import BackOffProtocol._
   // Any crashed actor will be stopped.
   override def supervisorStrategy = SupervisorStrategy.stoppingStrategy
@@ -27,7 +25,6 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration, ceiling: In
   context.watch(dangerousActor)
   var backedUp = Vector[TrackedMsg]()
   var possibleRedoMsg: Option[FailedMsg] = None
-  val backOff = new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
   implicit val ec = context.system.dispatcher
 
   def receive = {
