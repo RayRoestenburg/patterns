@@ -33,7 +33,6 @@ class BackOffSenderTest extends TestKit(ActorSystem("test1")) with WordSpec with
       // the dangerous resource will cause 8 consecutive failures, after that the 'err' message will be accepted again.
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
-      // two successful messages in the end, so it should reset twice
       system.stop(backOffSender)
     }
   }
