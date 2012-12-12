@@ -15,23 +15,23 @@ import scala.collection.immutable.SortedMap
 class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis, ceiling: Int = 10, stayAtCeiling: Boolean = false) extends Actor with ActorLogging {
   import BackOffProtocol._
   var backOff = ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
-  // Any crashed actor will be stopped.
+
   override def supervisorStrategy = SupervisorStrategy.stoppingStrategy
-  // Create and watch the dangerous actor.
   var dangerousActor = context.actorOf(dangerousProps)
   context.watch(dangerousActor)
   // messages that have not been acknowledged (yet)
   var possiblyFailed = Vector[TrackedMsg]()
+
   implicit val ec = context.system.dispatcher
   var waitTime = Duration.Zero
   val Tick = "tick"
+
   def receive = {
     case msg: Msg ⇒
       val trackedMsg = TrackedMsg(msg, sender)
       possiblyFailed = possiblyFailed :+ trackedMsg
-      // only send immediately if the backOff was not needed yet,
-      // or if the backOff was reset by an acknowledgement. otherwise schedule with delay
-      // specified by backOff.
+      // only send immediately if the backOff was not needed yet, or reset by an ack.
+      // otherwise schedule with delay specified by backOff.
       if (!backOff.isStarted) {
         dangerousActor.forward(trackedMsg)
       } else {
@@ -43,13 +43,13 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
       // re-create and watch
       dangerousActor = context.actorOf(dangerousProps)
       context.watch(dangerousActor)
-      // if there where failed messages scheduled them, after the next wait in the back off alg.
-      // if one of these fails, it will result in another termination, and a possibly higher delay based on backOff alg.
+      // if there where failed messages schedule after the next wait in the back off alg.
+      // if one of these fails, it will result in another termination and a possibly higher delay
       backOff = backOff.nextBackOff
       context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
 
     case Sent(idKey) ⇒
-      //Ack of the dangerous actor. Remove successful messages and reset the backOff.
+      //Ack of the dangerous actor. Remove successful message and reset the backOff.
       possiblyFailed = possiblyFailed.filterNot(tracked ⇒ tracked.msg.id == idKey)
       backOff = backOff.reset()
   }
