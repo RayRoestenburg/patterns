@@ -11,11 +11,10 @@ import scala.collection.immutable.SortedMap
  * It creates a child actor from given Props that might do something dangerous.
  * when the child crashes it terminates the child and recreates a new one from Props to replace
  * the crashed child and continues to send using the new child.
- * @param dangerousProps the props to create and re-create the 'dangerous actor'
- * @param backOff the backoff algotihm
  */
-class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor with ActorLogging {
+class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis, ceiling: Int = 10, stayAtCeiling: Boolean = false) extends Actor with ActorLogging {
   import BackOffProtocol._
+  var backOff = ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
   // Any crashed actor will be stopped.
   override def supervisorStrategy = SupervisorStrategy.stoppingStrategy
   // Create and watch the dangerous actor.
@@ -46,12 +45,12 @@ class BackOffSender(dangerousProps: Props, backOff: BackOff) extends Actor with 
       context.watch(dangerousActor)
       // if there where failed messages scheduled them, after the next wait in the back off alg.
       // if one of these fails, it will result in another termination, and a possibly higher delay based on backOff alg.
-      waitTime = backOff.nextWait
-      context.system.scheduler.scheduleOnce(waitTime, self, Tick)
+      backOff = backOff.nextBackOff
+      context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
 
     case Sent(idKey) ⇒
       //Ack of the dangerous actor. Remove successful messages and reset the backOff.
       possiblyFailed = possiblyFailed.filterNot(tracked ⇒ tracked.msg.id == idKey)
-      backOff.reset()
+      backOff = backOff.reset()
   }
 }

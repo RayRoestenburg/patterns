@@ -26,9 +26,7 @@ class BackOffSenderTest extends TestKit(ActorSystem("test1")) with WordSpec with
 
   "A backoff sender" must {
     "send messages and receive responses after temporary error states using a dangerous actor" in {
-      val backOff = new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
-      val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, backOff)))
-      backOff.resets must be(0)
+      val backOffSender = system.actorOf(Props(new BackOffSender(dangerousProps, slotTime, ceiling, stayAtCeiling)))
       // any other message than 'err' puts the consumer in the error state
       backOffSender.tell(Msg(1, "set-err"), testActor)
       expectMsg(Msg(1, "set-err"))
@@ -36,8 +34,6 @@ class BackOffSenderTest extends TestKit(ActorSystem("test1")) with WordSpec with
       backOffSender.tell(Msg(1, "err"), testActor)
       expectMsg(15 seconds, Msg(1, "err"))
       // two successful messages in the end, so it should reset twice
-      backOff.resets must be(2)
-      backOff.totalRetries must be(8)
       system.stop(backOffSender)
     }
   }

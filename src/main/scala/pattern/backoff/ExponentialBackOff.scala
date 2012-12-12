@@ -5,12 +5,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.TimeUnit
 import concurrent.duration.{ FiniteDuration, Duration }
 
-trait BackOff {
-  def reset()
-  def isStarted: Boolean
-  def nextWait: FiniteDuration
+object ExponentialBackOff {
+  def apply(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: Boolean) = {
+    new ExponentialBackOff(slotTime, ceiling, stayAtCeiling)
+  }
 }
-
 /**
  * Algorithm for truncated exponential back off.
  * http://en.wikipedia.org/wiki/Exponential_backoff
@@ -21,48 +20,32 @@ trait BackOff {
  * @param ceiling the ceiling of the slots (number of slots)
  * @param stayAtCeiling true=truncated/stays on ceiling, false resets after ceiling
  */
-class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int, stayAtCeiling: Boolean = false) extends BackOff {
-  private[this] val rand = new Random()
-  private[this] var slot = 1
-  private[this] var countResets = 0
-  private[this] var countRetries = 0
-  private[this] var countTotalRetries = 0
+case class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int = 10, stayAtCeiling: Boolean = false,
+                              slot: Int = 1, rand: Random = new Random(), waitTime: FiniteDuration = Duration.Zero,
+                              retries: Int = 0, resets: Int = 0, totalRetries: Long = 0) {
+  def isStarted = retries > 0
 
-  def isStarted = countRetries > 0
-  /**
-   * Resets this back off
-   */
-  def reset() {
-    slot = 1
-    countResets += 1
-    countRetries = 0
+  def reset(): ExponentialBackOff = {
+    copy(slot = 1, waitTime = Duration.Zero, resets = resets + 1, retries = 0)
   }
 
-  def resets = countResets
-  def totalRetries = countTotalRetries
-  /**
-   * Returns the next wait time.
-   * (if stayAtCeiling is true, reset to start again)
-   */
-  def nextWait: FiniteDuration = {
-    def time = slotTime * times
+  def nextBackOff: ExponentialBackOff = {
+    def time: FiniteDuration = slotTime * times
     def times = {
-      slot += 1
-      val exp = rand.nextInt(slot)
+      val exp = rand.nextInt(slot + 1)
       math.round(math.pow(2, exp) - 1)
     }
-    countRetries += 1
-    countTotalRetries += 1
-    if (slot > ceiling) {
-      if (stayAtCeiling) {
-        slot = ceiling
-        time
+    if (slot > ceiling && !stayAtCeiling) reset()
+    else {
+      val (newSlot, newWait: FiniteDuration) = if (slot > ceiling) {
+        (ceiling, time)
       } else {
-        reset()
-        nextWait
+        (slot + 1, time)
       }
-    } else {
-      time
+      copy(slot = newSlot,
+        waitTime = newWait,
+        retries = retries + 1,
+        totalRetries = totalRetries + 1)
     }
   }
 }
