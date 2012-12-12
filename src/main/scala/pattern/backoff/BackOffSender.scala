@@ -23,7 +23,6 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
   var possiblyFailed = Vector[TrackedMsg]()
 
   implicit val ec = context.system.dispatcher
-  var waitTime = Duration.Zero
   val Tick = "tick"
 
   def receive = {
@@ -32,13 +31,12 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
       possiblyFailed = possiblyFailed :+ trackedMsg
       // only send immediately if the backOff was not needed yet, or reset by an ack.
       // otherwise schedule with delay specified by backOff.
-      if (!backOff.isStarted) {
-        dangerousActor.forward(trackedMsg)
-      } else {
-        context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
-      }
+      if (!backOff.isStarted) dangerousActor.forward(trackedMsg)
+      else context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
+
     case Tick ⇒
       possiblyFailed.foreach(trackedMsg ⇒ dangerousActor.tell(trackedMsg, trackedMsg.sender))
+
     case Terminated(failedRef) ⇒
       // re-create and watch
       dangerousActor = context.actorOf(dangerousProps)
