@@ -35,7 +35,7 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
       if (!backOff.isStarted) {
         dangerousActor.forward(trackedMsg)
       } else {
-        context.system.scheduler.scheduleOnce(waitTime, self, Tick)
+        context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
       }
     case Tick ⇒
       possiblyFailed.foreach(trackedMsg ⇒ dangerousActor.tell(trackedMsg, trackedMsg.sender))
