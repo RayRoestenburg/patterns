@@ -35,9 +35,9 @@ case class ExponentialBackOff(slotTime: FiniteDuration, ceiling: Int = 10, stayA
       val exp = rand.nextInt(slot + 1)
       math.round(math.pow(2, exp) - 1)
     }
-    if (slot > ceiling && !stayAtCeiling) reset()
+    if (slot >= ceiling && !stayAtCeiling) reset()
     else {
-      val (newSlot, newWait: FiniteDuration) = if (slot > ceiling) {
+      val (newSlot, newWait: FiniteDuration) = if (slot >= ceiling) {
         (ceiling, time)
       } else {
         (slot + 1, time)

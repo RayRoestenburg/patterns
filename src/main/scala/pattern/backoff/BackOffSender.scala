@@ -21,7 +21,7 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
   context.watch(dangerousActor)
   // messages that have not been acknowledged (yet)
   var possiblyFailed = Vector[TrackedMsg]()
-
+  var scheduleResult: Option[Cancellable] = None
   implicit val ec = context.system.dispatcher
   val Tick = "tick"
 
@@ -32,11 +32,10 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
       // only send immediately if the backOff was not needed yet, or reset by an ack.
       // otherwise schedule with delay specified by backOff.
       if (!backOff.isStarted) dangerousActor.forward(trackedMsg)
-      else context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
-
+      if (backOff.isStarted && scheduleResult.isEmpty) scheduleResult = Some(context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick))
     case Tick ⇒
       possiblyFailed.foreach(trackedMsg ⇒ dangerousActor.tell(trackedMsg, trackedMsg.sender))
-
+      scheduleResult = None
     case Terminated(failedRef) ⇒
       // re-create and watch
       dangerousActor = context.actorOf(dangerousProps)
@@ -44,7 +43,7 @@ class BackOffSender(dangerousProps: Props, slotTime: FiniteDuration = 10 millis,
       // if there where failed messages schedule after the next wait in the back off alg.
       // if one of these fails, it will result in another termination and a possibly higher delay
       backOff = backOff.nextBackOff
-      context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick)
+      scheduleResult = Some(context.system.scheduler.scheduleOnce(backOff.waitTime, self, Tick))
 
     case Sent(idKey) ⇒
       //Ack of the dangerous actor. Remove successful message and reset the backOff.
